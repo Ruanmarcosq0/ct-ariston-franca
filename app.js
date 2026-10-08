@@ -23,10 +23,10 @@ document.documentElement.classList.add('js');
 (async()=>{
   const defs={
     logo:['assets/logo-1.txt','assets/logo-2.txt'],
-    hero:['assets/hero-1.txt','assets/hero-2.txt'],
-    muaythai:['assets/muay.txt'],
-    team:['assets/team.txt'],
-    jiujitsu:['assets/jiu.txt']
+    hero:['assets/heroFinal.txt'],
+    bjj:['assets/jiuFinal.txt'],
+    artes:['assets/artesFinal.txt'],
+    force:['assets/forceFinal.txt']
   };
 
   const preload=(src)=>new Promise((resolve,reject)=>{
@@ -37,85 +37,83 @@ document.documentElement.classList.add('js');
   });
 
   const uris={};
-  for(const [k,files] of Object.entries(defs)){
+  for(const [key,files] of Object.entries(defs)){
     try{
-      const parts=await Promise.all(files.map(f=>fetch(f,{cache:'force-cache'}).then(r=>{if(!r.ok)throw new Error(f);return r.text();})));
+      const parts=await Promise.all(files.map(file=>fetch(file,{cache:'force-cache'}).then(r=>{if(!r.ok)throw new Error(file);return r.text();})));
       const uri=`data:image/webp;base64,${parts.join('').replace(/\s/g,'')}`;
       await preload(uri);
-      uris[k]=uri;
-      document.querySelectorAll(`[data-asset="${k}"]`).forEach(el=>el.src=uri);
-      if(k==='logo'){
+      uris[key]=uri;
+      if(key==='logo'){
+        document.querySelectorAll('[data-asset="logo"]').forEach(el=>el.src=uri);
         const fav=document.getElementById('site-favicon');
-        if(fav)fav.href=uri;
+        if(fav) fav.href=uri;
       }
-    }catch(e){console.warn('asset',k,e);}
+    }catch(e){console.warn('asset',key,e);}
   }
 
-  // Mantém a hero exatamente como está e usa as fotos reais nos blocos correspondentes.
+  const safeImage=(img,src,alt)=>{
+    if(!img)return;
+    img.onerror=()=>{img.onerror=null;img.removeAttribute('src');img.style.visibility='hidden';};
+    if(src){img.style.visibility='visible';img.src=src;}else{img.style.visibility='hidden';}
+    if(alt)img.alt=alt;
+    img.decoding='async';
+  };
+
+  const hero=document.querySelector('.hero-athlete');
+  safeImage(hero,uris.hero,'Representante do CT Ariston França com cinturões e troféus');
+  if(hero){hero.loading='eager';hero.fetchPriority='high';}
+
   const cards=document.querySelectorAll('#modalidades .card img');
-  const safeTeam=uris.team||uris.hero||uris.jiujitsu;
   const cardMap=[
-    [uris.jiujitsu,'Atleta do CT Ariston França se preparando para treino de jiu-jitsu','center 24%'],
-    [safeTeam,'Atleta campeão do CT Ariston França com sua equipe','center 28%'],
-    [uris.muaythai||uris.jiujitsu,'Atleta do CT Ariston França se preparando para luta','38% 24%']
+    [uris.bjj,'Atleta campeão do CT Ariston França com cinturão'],
+    [uris.artes,'Atleta do CT Ariston França em posição de luta de Muay Thai'],
+    [uris.force,'Lutador do CT Ariston França comemorando vitória']
   ];
   cards.forEach((img,i)=>{
     const item=cardMap[i];
-    if(!item||!item[0])return;
-    img.onerror=()=>{
-      img.onerror=null;
-      if(uris.jiujitsu) img.src=uris.jiujitsu;
-      else img.style.visibility='hidden';
-    };
-    img.src=item[0];
-    img.alt=item[1];
+    if(item)safeImage(img,item[0],item[1]);
     img.loading='lazy';
-    img.decoding='async';
-    img.style.objectFit='cover';
-    img.style.objectPosition=item[2];
   });
 
   const champ=document.querySelector('#campeoes');
   if(champ){
-    const trophy=champ.querySelector('.float-card.muaythai img');
-    const team=champ.querySelector('.champ-main');
-    const bjj=champ.querySelector('.float-card.bjj img');
-
-    const applySafe=(img,primary,fallback,alt)=>{
-      if(!img)return;
-      img.onerror=()=>{
-        img.onerror=null;
-        if(fallback) img.src=fallback;
-        else img.style.visibility='hidden';
-      };
-      if(primary) img.src=primary;
-      else if(fallback) img.src=fallback;
-      else img.style.visibility='hidden';
-      img.alt=alt;
-    };
-
-    applySafe(trophy,uris.hero,uris.jiujitsu,'Atleta campeão do CT Ariston França com troféu');
-    applySafe(team,uris.team,uris.hero||uris.jiujitsu,'Equipe do CT Ariston França com atleta campeão');
-    applySafe(bjj,uris.jiujitsu,uris.hero,'Atleta de jiu-jitsu do CT Ariston França');
+    safeImage(champ.querySelector('.float-card.muaythai img'),uris.force,'Lutador do CT Ariston França comemorando vitória');
+    safeImage(champ.querySelector('.champ-main'),uris.hero,'Representante do CT Ariston França com cinturões e troféus');
+    safeImage(champ.querySelector('.float-card.bjj img'),uris.bjj,'Atleta campeão do CT Ariston França com cinturão');
   }
 
-  // Mensagem automática deixa claro que o contato veio pelo site.
   const whatsappText='Olá, tudo bem? Vim pelo site do CT Ariston França, gostei muito da apresentação da academia e quero saber mais sobre as modalidades e agendar uma aula experimental.';
   const wa=`https://wa.me/5515996290380?text=${encodeURIComponent(whatsappText)}`;
   document.querySelectorAll('a[href*="wa.me/5515996290380"]').forEach(a=>a.href=wa);
 
-  // Reforço visual das fotos sem alterar estrutura ou textos.
   const style=document.createElement('style');
   style.textContent=`
-    #modalidades .card img{filter:contrast(1.12) saturate(1.06)!important;image-rendering:auto;transition:transform .35s ease,filter .35s ease}
-    #modalidades .card:hover img{filter:contrast(1.16) saturate(1.1)!important}
-    #campeoes img{filter:contrast(1.1) saturate(1.05) drop-shadow(0 14px 28px rgba(0,0,0,.42));image-rendering:auto}
+    .hero-media{min-height:600px!important;display:flex!important;align-items:flex-end!important;justify-content:center!important;overflow:visible!important}
+    .hero-athlete{display:block!important;width:min(100%,560px)!important;max-width:560px!important;height:auto!important;max-height:690px!important;object-fit:contain!important;object-position:center bottom!important;filter:drop-shadow(0 18px 40px rgba(0,0,0,.58)) drop-shadow(0 0 24px rgba(229,27,35,.16))!important}
+    #modalidades .card{overflow:hidden!important}
+    #modalidades .card img{display:block!important;width:100%!important;height:300px!important;object-fit:contain!important;object-position:center bottom!important;padding:14px 12px 0!important;background:radial-gradient(circle at 50% 22%,rgba(229,27,35,.16),transparent 42%),linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.01))!important;filter:contrast(1.08) saturate(1.04)!important;box-sizing:border-box!important;transition:transform .35s ease,filter .35s ease!important}
+    #modalidades .card:hover img{transform:translateY(-4px) scale(1.015)!important;filter:contrast(1.12) saturate(1.08)!important}
+    #campeoes .champions-visual{min-height:600px!important;overflow:visible!important}
+    #campeoes .champ-main{display:block!important;width:min(100%,470px)!important;max-width:470px!important;height:auto!important;max-height:580px!important;object-fit:contain!important;object-position:center bottom!important}
+    #campeoes .float-card{overflow:hidden!important}
+    #campeoes .float-card img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;object-position:center bottom!important;padding:7px 5px 0!important;box-sizing:border-box!important}
     .instagram-link,.footer-instagram-cta{transition:transform .25s ease,filter .25s ease}
     .instagram-link:hover,.footer-instagram-cta:hover{transform:translateY(-2px);filter:brightness(1.12)}
+    @media(max-width:900px){
+      .hero-media{min-height:510px!important}.hero-athlete{width:min(100%,485px)!important;max-height:590px!important}
+      #modalidades .card img{height:260px!important}
+      #campeoes .champions-visual{min-height:500px!important}#campeoes .champ-main{width:min(100%,410px)!important;max-height:500px!important}
+    }
+    @media(max-width:560px){
+      .hero-media{min-height:410px!important;margin-top:20px!important}.hero-athlete{width:min(100%,370px)!important;max-height:450px!important}
+      #modalidades .card img{height:245px!important;padding:10px 8px 0!important}
+      #campeoes .champions-visual{min-height:430px!important}#campeoes .champ-main{width:min(100%,325px)!important;max-height:410px!important}
+      #campeoes .float-card.muaythai{width:142px!important;height:190px!important;left:0!important;bottom:4px!important}
+      #campeoes .float-card.bjj{width:138px!important;height:195px!important;right:0!important;top:5px!important}
+    }
   `;
   document.head.appendChild(style);
 
-  // Ícone do Instagram nos CTAs já existentes, preservando a estrutura.
   const igIcon='<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2Zm0 1.5A4.25 4.25 0 0 0 3.5 7.75v8.5A4.25 4.25 0 0 0 7.75 20.5h8.5a4.25 4.25 0 0 0 4.25-4.25v-8.5A4.25 4.25 0 0 0 16.25 3.5h-8.5Zm8.9 1.15a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2ZM12 6.5A5.5 5.5 0 1 1 6.5 12 5.51 5.51 0 0 1 12 6.5Zm0 1.5A4 4 0 1 0 16 12a4 4 0 0 0-4-4Z"/></svg>';
   const contactIg=document.querySelector('.instagram-link');
   if(contactIg){const icon=contactIg.querySelector('.ig-icon');if(icon)icon.innerHTML=igIcon;}
