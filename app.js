@@ -23,32 +23,44 @@ document.documentElement.classList.add('js');
 (async()=>{
   const loadAsset = async(files) => {
     const parts = await Promise.all(files.map(f => fetch(f,{cache:'no-store'}).then(r => { if(!r.ok) throw new Error(f); return r.text(); })));
-    const src = `data:image/webp;base64,${parts.join('').replace(/\s/g,'')}`;
+    const b64=parts.join('').replace(/\s/g,'');
+    if(!b64 || b64.length%4===1) throw new Error('base64 inválido');
+    const src = `data:image/webp;base64,${b64}`;
     await new Promise((resolve,reject)=>{ const i=new Image(); i.onload=resolve; i.onerror=reject; i.src=src; });
     return src;
   };
 
-  const assets={};
-  const defs={
-    hero:['assets/heroFinal.txt'],
-    artes:['assets/artesFinal.txt'],
-    force:['assets/forceFinal.txt'],
-    bjj:['assets/jiu.txt'],
-    logo:['assets/logo-1.txt','assets/logo-2.txt']
+  const loadFirstValid = async(candidates) => {
+    for(const files of candidates){
+      try{return await loadAsset(files);}catch(err){console.warn('asset inválido',files,err);}
+    }
+    return null;
   };
 
-  for(const [key,files] of Object.entries(defs)){
-    try{ assets[key]=await loadAsset(files); }
-    catch(err){ console.warn('Falha ao carregar asset',key,err); }
-  }
+  const assets={};
+  const defs={
+    hero:[['assets/heroFinal.txt'],['assets/hero-1.txt','assets/hero-2.txt']],
+    artes:[['assets/artesFinal.txt'],['assets/muay.txt']],
+    force:[['assets/forceFinal.txt'],['assets/muay.txt'],['assets/jiu.txt']],
+    bjj:[['assets/jiu.txt'],['assets/hero-1.txt','assets/hero-2.txt']],
+    logo:[['assets/logo-1.txt','assets/logo-2.txt']]
+  };
+
+  for(const [key,candidates] of Object.entries(defs)) assets[key]=await loadFirstValid(candidates);
+
+  const safeSet=(img,src,alt)=>{
+    if(!img)return;
+    if(!src){img.removeAttribute('src');img.style.visibility='hidden';return;}
+    img.onerror=()=>{img.onerror=null;img.removeAttribute('src');img.style.visibility='hidden';};
+    img.src=src; img.alt=alt; img.style.visibility='visible';
+  };
 
   if(assets.logo){
-    document.querySelectorAll('[data-asset="logo"]').forEach(el=>el.src=assets.logo);
+    document.querySelectorAll('[data-asset="logo"]').forEach(el=>safeSet(el,assets.logo,'Logo CT Ariston França'));
     const fav=document.getElementById('site-favicon'); if(fav) fav.href=assets.logo;
   }
 
-  const hero=document.querySelector('.hero-athlete');
-  if(hero && assets.hero){ hero.src=assets.hero; hero.alt='Representante do CT Ariston França com cinturões e troféus'; }
+  safeSet(document.querySelector('.hero-athlete'),assets.hero,'Representante do CT Ariston França com cinturões e troféus');
 
   const cards=document.querySelectorAll('#modalidades .card img');
   const cardMap=[
@@ -57,19 +69,16 @@ document.documentElement.classList.add('js');
     [assets.force,'Lutador do CT Ariston França comemorando vitória']
   ];
   cards.forEach((img,i)=>{
-    const item=cardMap[i]; if(!item||!item[0]) return;
-    img.src=item[0]; img.alt=item[1]; img.loading='lazy'; img.decoding='async';
+    const item=cardMap[i]; if(!item)return;
+    safeSet(img,item[0],item[1]); img.loading='lazy'; img.decoding='async';
     img.style.objectFit='contain'; img.style.objectPosition='center bottom';
   });
 
   const champ=document.querySelector('#campeoes');
   if(champ){
-    const left=champ.querySelector('.float-card.muaythai img');
-    const main=champ.querySelector('.champ-main');
-    const right=champ.querySelector('.float-card.bjj img');
-    if(left && assets.force){ left.src=assets.force; left.alt='Lutador do CT Ariston França comemorando vitória'; }
-    if(main && assets.hero){ main.src=assets.hero; main.alt='Representante do CT Ariston França com cinturões e troféus'; }
-    if(right && assets.bjj){ right.src=assets.bjj; right.alt='Atleta de jiu-jitsu do CT Ariston França'; }
+    safeSet(champ.querySelector('.float-card.muaythai img'),assets.force,'Lutador do CT Ariston França comemorando vitória');
+    safeSet(champ.querySelector('.champ-main'),assets.hero,'Representante do CT Ariston França com cinturões e troféus');
+    safeSet(champ.querySelector('.float-card.bjj img'),assets.bjj,'Atleta de jiu-jitsu do CT Ariston França');
   }
 
   const whatsappText='Olá, tudo bem? Vim pelo site do CT Ariston França, gostei muito da apresentação da academia e quero saber mais sobre as modalidades e agendar uma aula experimental.';
