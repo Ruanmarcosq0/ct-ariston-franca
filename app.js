@@ -25,14 +25,23 @@ document.documentElement.classList.add('js');
     logo:['assets/logo-1.txt','assets/logo-2.txt'],
     hero:['assets/hero-1.txt','assets/hero-2.txt'],
     muaythai:['assets/muay.txt'],
-    team:['assets/team-1.txt','assets/team-2.txt','assets/team-3.txt','assets/team-4.txt'],
+    team:['assets/team.txt'],
     jiujitsu:['assets/jiu.txt']
   };
+
+  const preload=(src)=>new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(src);
+    img.onerror=()=>reject(new Error('imagem inválida'));
+    img.src=src;
+  });
+
   const uris={};
   for(const [k,files] of Object.entries(defs)){
     try{
       const parts=await Promise.all(files.map(f=>fetch(f,{cache:'force-cache'}).then(r=>{if(!r.ok)throw new Error(f);return r.text();})));
       const uri=`data:image/webp;base64,${parts.join('').replace(/\s/g,'')}`;
+      await preload(uri);
       uris[k]=uri;
       document.querySelectorAll(`[data-asset="${k}"]`).forEach(el=>el.src=uri);
       if(k==='logo'){
@@ -44,14 +53,20 @@ document.documentElement.classList.add('js');
 
   // Mantém a hero exatamente como está e usa as fotos reais nos blocos correspondentes.
   const cards=document.querySelectorAll('#modalidades .card img');
+  const safeTeam=uris.team||uris.hero||uris.jiujitsu;
   const cardMap=[
     [uris.jiujitsu,'Atleta do CT Ariston França se preparando para treino de jiu-jitsu','center 24%'],
-    [uris.team,'Atleta campeão do CT Ariston França com sua equipe','center 28%'],
-    [uris.muaythai,'Atleta do CT Ariston França se preparando para luta','38% 24%']
+    [safeTeam,'Atleta campeão do CT Ariston França com sua equipe','center 28%'],
+    [uris.muaythai||uris.jiujitsu,'Atleta do CT Ariston França se preparando para luta','38% 24%']
   ];
   cards.forEach((img,i)=>{
     const item=cardMap[i];
     if(!item||!item[0])return;
+    img.onerror=()=>{
+      img.onerror=null;
+      if(uris.jiujitsu) img.src=uris.jiujitsu;
+      else img.style.visibility='hidden';
+    };
     img.src=item[0];
     img.alt=item[1];
     img.loading='lazy';
@@ -65,9 +80,23 @@ document.documentElement.classList.add('js');
     const trophy=champ.querySelector('.float-card.muaythai img');
     const team=champ.querySelector('.champ-main');
     const bjj=champ.querySelector('.float-card.bjj img');
-    if(trophy&&uris.hero){trophy.src=uris.hero;trophy.alt='Atleta campeão do CT Ariston França com troféu';}
-    if(team&&uris.team){team.src=uris.team;team.alt='Equipe do CT Ariston França com atleta campeão';}
-    if(bjj&&uris.jiujitsu){bjj.src=uris.jiujitsu;bjj.alt='Atleta de jiu-jitsu do CT Ariston França';}
+
+    const applySafe=(img,primary,fallback,alt)=>{
+      if(!img)return;
+      img.onerror=()=>{
+        img.onerror=null;
+        if(fallback) img.src=fallback;
+        else img.style.visibility='hidden';
+      };
+      if(primary) img.src=primary;
+      else if(fallback) img.src=fallback;
+      else img.style.visibility='hidden';
+      img.alt=alt;
+    };
+
+    applySafe(trophy,uris.hero,uris.jiujitsu,'Atleta campeão do CT Ariston França com troféu');
+    applySafe(team,uris.team,uris.hero||uris.jiujitsu,'Equipe do CT Ariston França com atleta campeão');
+    applySafe(bjj,uris.jiujitsu,uris.hero,'Atleta de jiu-jitsu do CT Ariston França');
   }
 
   // Mensagem automática deixa claro que o contato veio pelo site.
